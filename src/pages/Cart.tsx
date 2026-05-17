@@ -41,7 +41,7 @@ export default function Cart() {
       if (res.ok) {
         const order = await res.json();
         clearCart();
-        navigate('/order-confirmation', { state: { order } });
+        navigate('/checkout');
       } else {
         const data = await res.json();
         alert(data.message || 'Failed to place order');
