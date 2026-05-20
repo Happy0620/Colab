@@ -101,7 +101,7 @@ export default function Home() {
     return () => { window.removeEventListener('wheel', onWheel); window.removeEventListener('touchstart', onTouchStart); window.removeEventListener('touchmove', onTouchMove); clearTimeout(timer); document.body.classList.remove('intro-active'); document.body.style.overflow = ''; document.body.style.height = ''; };
   }, []);
 
-  const RestaurantCard = ({ r }: { r: any }) => {
+  const RestaurantCard = ({ r }: { r: any; key?: any }) => {
     const isFav = user?.favorites?.includes(r._id);
     return (
       <Link to={`/restaurant/${r._id}`} className="food-card" style={{ display: 'block', color: 'inherit' }}>
@@ -129,7 +129,7 @@ export default function Home() {
     );
   };
 
-  const FoodCard = ({ item }: { item: any }) => (
+  const FoodCard = ({ item }: { item: any; key?: any }) => (
     <Link to={`/restaurant/${item.restaurantId?._id}`} style={{ display: 'flex', alignItems: 'center', gap: 14, background: 'white', borderRadius: 16, padding: 14, textDecoration: 'none', color: 'inherit', boxShadow: '0 2px 10px rgba(0,0,0,0.07)', transition: 'transform 0.2s' }}
       onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
       onMouseLeave={e => (e.currentTarget.style.transform = 'translateY(0)')}>
