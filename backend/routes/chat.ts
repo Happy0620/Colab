@@ -55,7 +55,7 @@ router.post('/', async (req: any, res: any) => {
 
   } catch (error: any) {
     console.error('Chat error:', error.message);
-    res.status(500).json({ message: 'Chat error', error: error.message });
+    res.status(500).json({ reply: 'Sorry, try again later', message: 'Chat error', error: error.message });
   }
 });
 
