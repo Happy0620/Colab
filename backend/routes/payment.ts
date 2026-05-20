@@ -23,9 +23,26 @@ router.post('/confirm-qr', async (req: any, res: any) => {
     await order.save();
 
     // Send confirmations
+    try {
+      await new Notification({
+        userId: order.userId,
+        isAdmin: false,
+        title: 'Order Status Update',
+        message: `Your order #${order._id.toString().slice(-6).toUpperCase()} status is now: Confirmed.`,
+        type: 'ORDER_STATUS'
+      }).save();
+    } catch(e) {}
+
     try { const user = await User.findById(order.userId); if (user?.email) await sendOrderConfirmationEmail(user.email, user.name, order); } catch(e) {}
     try { await sendAdminNewOrderEmail(order); } catch (e) {}
-    try { await new Notification({ title: 'New Order Received', message: `Order #${order._id} has been placed for $${order.totalAmount.toFixed(2)} (Online Payment).`, type: 'NEW_ORDER' }).save(); } catch(e) {}
+    try { 
+      await new Notification({ 
+        title: 'New Order Received', 
+        message: `Order #${order._id} has been placed for $${order.totalAmount.toFixed(2)} (Online Payment).`, 
+        type: 'NEW_ORDER',
+        isAdmin: true
+      }).save(); 
+    } catch(e) {}
 
     res.json({ success: true, order });
   } catch (error: any) {

@@ -42,9 +42,13 @@ export default function Chatbot() {
         })
       });
       const data = await res.json();
-      setMessages(prev => [...prev, { role: 'assistant', content: data.reply || 'Sorry, I could not get a response.' }]);
+      if (!res.ok) {
+        setMessages(prev => [...prev, { role: 'assistant', content: data.reply || 'Sorry, try again later' }]);
+      } else {
+        setMessages(prev => [...prev, { role: 'assistant', content: data.reply || 'Sorry, I could not get a response.' }]);
+      }
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Oops! Something went wrong. Try again!' }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, try again later' }]);
     }
     setLoading(false);
   };
