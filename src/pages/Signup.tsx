@@ -6,6 +6,7 @@ export default function Signup() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [name, setName] = useState('');
+  const [nameError, setNameError] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -13,9 +14,50 @@ export default function Signup() {
   const { setToken, setUser } = useAppContext();
   const navigate = useNavigate();
 
+  const validateName = (val: string) => {
+    if (!val) {
+      setNameError('');
+      return false;
+    }
+    const isValid = /^[A-Za-z\s\-']+$/.test(val);
+    if (!isValid) setNameError('Name must contain letters only');
+    else setNameError('');
+    return isValid;
+  };
+
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setName(e.target.value);
+    validateName(e.target.value);
+  };
+
+  const getPasswordStrength = (pass: string) => {
+    if (!pass || pass.length < 8) return 'Weak';
+    let types = 0;
+    if (/[a-z]/.test(pass)) types++;
+    if (/[A-Z]/.test(pass)) types++;
+    if (/[0-9]/.test(pass)) types++;
+    if (/[^a-zA-Z0-9]/.test(pass)) types++;
+    if (types >= 3) return 'Strong';
+    if (types >= 2) return 'Medium';
+    return 'Weak';
+  };
+
+  const strength = getPasswordStrength(password);
+  const strengthColor = strength === 'Strong' ? '#22C55E' : strength === 'Medium' ? '#F59E0B' : '#EF4444';
+
   const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!validateName(name)) {
+      alert('Please enter a valid full name (letters only).');
+      return;
+    }
+
+    if (strength === 'Weak') {
+      alert('Password is too weak. It must be at least 8 characters long and contain at least 2 character types.');
+      return;
+    }
+
     if (password !== confirmPassword) {
         alert('Passwords do not match!');
         return;
@@ -76,10 +118,11 @@ export default function Signup() {
             <form id="signupForm" onSubmit={handleSignupSubmit}>
               <div className="form-group">
                 <label>Full Name</label>
-                <div className="input-wrapper">
+                <div className="input-wrapper" style={{ border: nameError ? '1px solid #EF4444' : 'none', borderRadius: 'var(--border-radius-lg)' }}>
                   <i className="fa-regular fa-user"></i>
-                  <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="John Doe" required />
+                  <input type="text" value={name} onChange={handleNameChange} placeholder="John Doe" required />
                 </div>
+                {nameError && <div style={{ color: '#EF4444', fontSize: '0.8rem', marginTop: '4px', fontWeight: 500 }}>{nameError}</div>}
               </div>
 
               <div className="form-group">
@@ -98,6 +141,16 @@ export default function Signup() {
                     <input type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required />
                     <i className={`fa-regular ${showPassword ? 'fa-eye-slash' : 'fa-eye'} password-toggle`} onClick={() => setShowPassword(!showPassword)}></i>
                   </div>
+                  {password && (
+                    <div style={{ marginTop: '8px' }}>
+                      <div style={{ display: 'flex', gap: '4px', height: '4px', marginBottom: '4px' }}>
+                        <div style={{ flex: 1, background: strengthColor, borderRadius: '2px' }}></div>
+                        <div style={{ flex: 1, background: strength === 'Medium' || strength === 'Strong' ? strengthColor : '#eee', borderRadius: '2px' }}></div>
+                        <div style={{ flex: 1, background: strength === 'Strong' ? strengthColor : '#eee', borderRadius: '2px' }}></div>
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: strengthColor, fontWeight: 600, textAlign: 'right' }}>{strength}</div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="form-group" style={{ marginBottom: 0 }}>

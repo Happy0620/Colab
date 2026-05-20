@@ -68,6 +68,12 @@ export default function Profile() {
     }
   }, [section]);
 
+  useEffect(() => {
+    if (section === "addresses" && user?.role === "admin") {
+      setSection("main");
+    }
+  }, [section, user]);
+
   const saveAddress = () => {
     if (!newAddress.trim()) return;
     const updated = [...addresses, newAddress.trim()];
@@ -311,10 +317,10 @@ export default function Profile() {
   return (
     <div style={s.page}>
       <div style={s.topBar}>
-        <div style={{ width: 36 }} />
+        <button onClick={() => navigate(-1)} style={s.backBtn}><i className="fa-solid fa-arrow-left"></i></button>
         <h2 style={s.topTitle}>MY PROFILE</h2>
         <button onClick={() => { logout(); navigate("/"); }} style={s.logoutBtn} title="Logout">
-          <i className="fa-solid fa-arrow-right-from-bracket"></i>
+          <i className="fa-solid fa-power-off"></i>
         </button>
       </div>
       <div style={s.content}>
@@ -339,7 +345,7 @@ export default function Profile() {
           {[
             { key: "favorites", icon: "fa-heart",        bg: "#FFE4E4", color: "#EF4444", label: "My Favourites",           sub: (user?.favorites?.length || 0) + " saved" },
             { key: "orders",    icon: "fa-bag-shopping",  bg: "#E0F0FF", color: "#3B82F6", label: "Order History",            sub: "View all orders" },
-            { key: "addresses", icon: "fa-location-dot",  bg: "#FFF3E0", color: "#F88435", label: "Manage Delivery Address",  sub: addresses.length + " saved" },
+            ...(user?.role === "admin" ? [] : [{ key: "addresses", icon: "fa-location-dot",  bg: "#FFF3E0", color: "#F88435", label: "Manage Delivery Address",  sub: addresses.length + " saved" }]),
             { key: "vouchers",  icon: "fa-ticket",        bg: "#FFF0E0", color: "#F59E0B", label: "Voucher Vault",            sub: VOUCHERS.length + " available" },
           ].map(item => (
             <button key={item.key} onClick={() => setSection(item.key as Section)} style={s.menuItem}>

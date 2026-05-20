@@ -4,7 +4,6 @@ import { Link } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState('restaurants');
   const [restaurants, setRestaurants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -211,10 +210,6 @@ export default function Home() {
       <section id="restaurants" className="foods-section container">
         <div className="section-header">
           <div><div className="sub-title">CURATED SELECTION</div><h2>Explore Local Flavors</h2></div>
-          <div className="tabs">
-            <button className={`tab ${activeTab === 'foods' ? 'active' : ''}`} onClick={() => setActiveTab('foods')}>Foods</button>
-            <button className={`tab ${activeTab === 'restaurants' ? 'active' : ''}`} onClick={() => setActiveTab('restaurants')}>Restaurants</button>
-          </div>
         </div>
 
         {/* Search */}
