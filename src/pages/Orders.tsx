@@ -1,7 +1,9 @@
+import 'leaflet/dist/leaflet.css';
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { useAppContext } from '../context/AppContext';
+import DeliveryMap from '../components/DeliveryMap';
 
 const STATUS_STEPS = ['Pending', 'Confirmed', 'Preparing', 'On the way', 'Delivered'];
 
@@ -14,7 +16,43 @@ const STATUS_META: Record<string, { color: string; bg: string; icon: string; mes
   'Cancelled':  { color: '#EF4444', bg: '#FEF2F2', icon: '❌', message: 'Order was cancelled.' },
 };
 
-function OrderCard({ order, expanded, onToggle, onReorder, past = false }: any) {
+
+function useCountdown(order: any) {
+  const [timeLeft, setTimeLeft] = React.useState('');
+  const [progress, setProgress] = React.useState(0);
+
+  React.useEffect(() => {
+    if (['Delivered', 'Cancelled'].includes(order.status)) return;
+
+    const deliveryMinutes: Record<string, number> = {
+      'Pending': 45, 'Confirmed': 40, 'Preparing': 30, 'On the way': 15
+    };
+
+    const totalMins = deliveryMinutes[order.status] || 45;
+    const orderTime = new Date(order.createdAt).getTime();
+    const deliveryTime = orderTime + totalMins * 60 * 1000;
+
+    const tick = () => {
+      const now = Date.now();
+      const diff = deliveryTime - now;
+      if (diff <= 0) { setTimeLeft('Arriving soon!'); setProgress(100); return; }
+      const mins = Math.floor(diff / 60000);
+      const secs = Math.floor((diff % 60000) / 1000);
+      setTimeLeft(mins + 'm ' + secs + 's');
+      const elapsed = now - orderTime;
+      const total = deliveryTime - orderTime;
+      setProgress(Math.min(100, Math.round((elapsed / total) * 100)));
+    };
+
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [order.status, order.createdAt]);
+
+  return { timeLeft, progress };
+}
+
+function OrderCard({ order, expanded, onToggle, onReorder, onCancel, past = false }: any) {
   const meta = STATUS_META[order.status] || STATUS_META['Pending'];
   const stepIdx = STATUS_STEPS.indexOf(order.status);
   const isCancelled = order.status === 'Cancelled';
@@ -82,7 +120,35 @@ function OrderCard({ order, expanded, onToggle, onReorder, past = false }: any) 
             </div>
           </div>
         )}
-        {order.status === 'Delivered' && (
+        {!['Delivered', 'Cancelled'].includes(order.status) && !past && (() => {
+        const { timeLeft, progress } = useCountdown(order);
+        return (
+          <div style={{ margin: '0 0 12px', padding: '14px 16px', background: '#FFF8F3', borderRadius: 14, border: '1px solid #FFE0CC' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#F88435' }}>
+                <i className="fa-solid fa-clock" style={{ marginRight: 6 }}></i>Estimated Delivery
+              </span>
+              <span style={{ fontSize: '1rem', fontWeight: 800, color: '#F88435', fontVariantNumeric: 'tabular-nums' }}>
+                {timeLeft}
+              </span>
+            </div>
+            <div style={{ height: 8, background: '#FFE0CC', borderRadius: 10, overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: progress + '%', background: 'linear-gradient(90deg, #F88435, #FF6B35)', borderRadius: 10, transition: 'width 1s linear' }}></div>
+            </div>
+          </div>
+        );
+      })()}
+      {order.status === 'On the way' && !past && (
+          <DeliveryMap restaurantName={order.restaurantId?.name || 'Restaurant'} />
+        )}
+      {order.status === 'Pending' && !past && (
+          <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end' }}>
+            <button onClick={() => onCancel(order._id)} style={{ padding: '8px 18px', borderRadius: '20px', border: '2px solid #EF4444', background: '#FEF2F2', color: '#EF4444', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}>
+              Cancel Order
+            </button>
+          </div>
+        )}
+      {order.status === 'Delivered' && (
           <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end' }}>
             <button onClick={() => onReorder(order)} style={{ padding: '8px 18px', borderRadius: '20px', border: '2px solid #F88435', background: '#FFF0E6', color: '#F88435', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}>
               🔄 Reorder
@@ -99,6 +165,7 @@ export default function Orders() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+  const [cancelConfirmId, setCancelConfirmId] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const pollRef = useRef<any>(null);
 
@@ -152,6 +219,28 @@ export default function Orders() {
     alert('Items added to cart!');
   };
 
+  const handleCancel = async (orderId: string) => {
+    setCancelConfirmId(orderId);
+  };
+
+  const confirmCancel = async () => {
+    const orderId = cancelConfirmId;
+    setCancelConfirmId(null);
+    if (!orderId) return;
+    try {
+      const res = await fetch('/api/orders/' + orderId + '/status', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ status: 'Cancelled' })
+      });
+      if (res.ok) {
+        setOrders(prev => prev.map(o => o._id === orderId ? { ...o, status: 'Cancelled' } : o));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   if (!user) {
     return (
       <>
@@ -170,6 +259,23 @@ export default function Orders() {
 
   return (
     <>
+      {cancelConfirmId && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: 'white', borderRadius: 20, padding: 32, maxWidth: 360, width: '100%', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+            <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#FEF2F2', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: '1.8rem' }}>❌</div>
+            <h3 style={{ fontWeight: 800, marginBottom: 8 }}>Cancel Order?</h3>
+            <p style={{ color: '#888', fontSize: '0.9rem', marginBottom: 24 }}>Are you sure you want to cancel this order? This action cannot be undone.</p>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button onClick={() => setCancelConfirmId(null)} style={{ flex: 1, padding: '12px', borderRadius: 12, border: '2px solid #eee', background: 'white', fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem' }}>
+                Keep Order
+              </button>
+              <button onClick={confirmCancel} style={{ flex: 1, padding: '12px', borderRadius: 12, border: 'none', background: '#EF4444', color: 'white', fontWeight: 700, cursor: 'pointer', fontSize: '0.9rem' }}>
+                Yes, Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="container"><Navbar /></div>
       <div className="container" style={{ padding: '40px 20px', maxWidth: '860px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px' }}>
@@ -200,7 +306,7 @@ export default function Orders() {
                   Active Orders
                 </h2>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  {activeOrders.map(order => <OrderCard key={order._id} order={order} expanded={expandedOrder === order._id} onToggle={() => setExpandedOrder(expandedOrder === order._id ? null : order._id)} onReorder={handleReorder} />)}
+                  {activeOrders.map(order => <OrderCard key={order._id} order={order} expanded={expandedOrder === order._id} onToggle={() => setExpandedOrder(expandedOrder === order._id ? null : order._id)} onReorder={handleReorder} onCancel={handleCancel} />)}
                 </div>
               </div>
             )}

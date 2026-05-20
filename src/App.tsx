@@ -6,6 +6,7 @@ import RestaurantDetails from './pages/RestaurantDetails';
 import Cart from './pages/Cart';
 import Orders from './pages/Orders'
 import Profile from './pages/Profile';
+import Checkout from './pages/Checkout';
 import AdminDashboard from './pages/AdminDashboard';
 import OrderConfirmation from './pages/Orderconfirmation';
 import { AppProvider } from './context/AppContext';
@@ -22,7 +23,8 @@ export default function App() {
           <Route path="/restaurant/:id" element={<RestaurantDetails />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/profile" element={<Profile />} />
-        <Route path="/orders" element={<Orders />} />
+        <Route path="/checkout" element={<Checkout />} />
+          <Route path="/orders" element={<Orders />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/order-confirmation" element={<OrderConfirmation />} />
         </Routes>

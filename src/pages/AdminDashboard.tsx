@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import ImageUpload from '../components/ImageUpload';
 import { useAppContext } from '../context/AppContext';
 
-type Tab = 'orders' | 'restaurants' | 'menu';
+type Tab = 'orders' | 'restaurants' | 'menu' | 'analytics';
 
 const STATUS_COLORS: Record<string, string> = {
   'Pending':    '#F59E0B',
@@ -19,6 +20,10 @@ export default function AdminDashboard() {
   const { user, token } = useAppContext();
   const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>('orders');
+
+  // Notifications state
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   // Orders state
   const [orders, setOrders] = useState<any[]>([]);
@@ -45,10 +50,28 @@ export default function AdminDashboard() {
 
   const authHeaders = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
 
-  useEffect(() => {
-    if (!user || user.role !== 'admin') { navigate('/'); return; }
-    fetchOrders();
-  }, [user, navigate]);
+  const fetchNotifications = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await fetch('/api/notifications', { headers: authHeaders });
+      const data = await res.json();
+      if (Array.isArray(data)) setNotifications(data);
+    } catch (err) {
+      console.error(err);
+    }
+  }, [token]);
+
+  const markAsRead = async (id: string) => {
+    await fetch(`/api/notifications/${id}/read`, { method: 'PATCH', headers: authHeaders });
+    fetchNotifications();
+  };
+
+  const markAllAsRead = async () => {
+    await fetch('/api/notifications/read-all', { method: 'PATCH', headers: authHeaders });
+    fetchNotifications();
+  };
+
+
 
   // ── Fetch Orders ──────────────────────────────────────────
   // JIRA: ADMIN-02 - Real-time Order Polling & Notifications
@@ -79,11 +102,20 @@ export default function AdminDashboard() {
     }
   }, [token, lastOrderCount]);
 
+  useEffect(() => {
+    if (!user || user.role !== 'admin') { navigate('/'); return; }
+    fetchOrders();
+    fetchNotifications();
+  }, [user, navigate, fetchOrders, fetchNotifications]);
+
   // Poll every 15 seconds for new orders
   useEffect(() => {
-    pollRef.current = setInterval(() => fetchOrders(true), 15000);
+    pollRef.current = setInterval(() => {
+      fetchOrders(true);
+      fetchNotifications();
+    }, 15000);
     return () => clearInterval(pollRef.current);
-  }, [fetchOrders]);
+  }, [fetchOrders, fetchNotifications]);
 
   // ── Fetch Restaurants ──────────────────────────────────────
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, setter: (val: string) => void) => {
@@ -201,9 +233,9 @@ export default function AdminDashboard() {
         <aside style={{ width: '230px', background: '#1A1208', padding: '24px 14px', display: 'flex', flexDirection: 'column', gap: '4px', position: 'sticky', top: '70px', height: 'calc(100vh - 70px)' }}>
           <div style={{ fontFamily: 'Georgia,serif', fontSize: '1rem', color: '#F88435', padding: '0 8px 20px', borderBottom: '1px solid #333', marginBottom: '12px' }}>🍴 Feasto Admin</div>
 
-          {(['orders', 'restaurants', 'menu'] as Tab[]).map(t => (
+          {(['orders', 'restaurants', 'menu', 'analytics'] as Tab[]).map(t => (
             <button key={t} onClick={() => handleTabChange(t)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: '10px', border: 'none', cursor: 'pointer', background: tab === t ? 'rgba(248,132,53,0.15)' : 'transparent', color: tab === t ? '#F88435' : '#aaa', fontWeight: 500, fontSize: '0.9rem' }}>
-              <span>{t === 'orders' ? '📦 Orders' : t === 'restaurants' ? '🏪 Restaurants' : '🍽️ Menu Items'}</span>
+              <span>{t === 'orders' ? '📦 Orders' : t === 'restaurants' ? '🏪 Restaurants' : t === 'menu' ? '🍽️ Menu Items' : '📊 Analytics'}</span>
               {t === 'orders' && newOrderCount > 0 && <span style={{ background: '#EF4444', color: '#fff', borderRadius: '50%', width: '20px', height: '20px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>{newOrderCount}</span>}
             </button>
           ))}
@@ -213,6 +245,44 @@ export default function AdminDashboard() {
 
         {/* Main */}
         <main style={{ flex: 1, padding: '32px 40px', overflowY: 'auto' }}>
+
+          {/* Header & Notifications */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '24px', position: 'relative' }}>
+            <button 
+              onClick={() => setShowNotifications(!showNotifications)}
+              style={{ background: '#fff', border: '1px solid #EDE8E3', borderRadius: '50%', width: '44px', height: '44px', fontSize: '1.2rem', cursor: 'pointer', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}
+            >
+              🔔
+              {notifications.filter(n => !n.read).length > 0 && (
+                <span style={{ position: 'absolute', top: '-2px', right: '-2px', background: '#EF4444', color: 'white', fontSize: '0.65rem', fontWeight: 'bold', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {notifications.filter(n => !n.read).length}
+                </span>
+              )}
+            </button>
+
+            {/* Dropdown */}
+            {showNotifications && (
+              <div style={{ position: 'absolute', top: '50px', right: 0, width: '320px', background: '#fff', border: '1px solid #EDE8E3', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 100, overflow: 'hidden' }}>
+                <div style={{ padding: '12px 16px', borderBottom: '1px solid #EDE8E3', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#FAF8F5' }}>
+                  <h4 style={{ margin: 0, fontSize: '0.9rem', color: '#333' }}>Notifications</h4>
+                  <button onClick={markAllAsRead} style={{ background: 'none', border: 'none', color: '#F88435', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}>Mark all read</button>
+                </div>
+                <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                  {notifications.length === 0 ? (
+                    <div style={{ padding: '20px', textAlign: 'center', color: '#8A7060', fontSize: '0.85rem' }}>No notifications yet.</div>
+                  ) : notifications.map(n => (
+                    <div key={n._id} onClick={() => { if (!n.read) markAsRead(n._id); }} style={{ padding: '12px 16px', borderBottom: '1px solid #f5f5f5', background: n.read ? '#fff' : '#FFFBEB', cursor: n.read ? 'default' : 'pointer', transition: 'background 0.2s' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                        <span style={{ fontWeight: 600, fontSize: '0.85rem', color: '#333' }}>{n.title}</span>
+                        <span style={{ fontSize: '0.7rem', color: '#888' }}>{new Date(n.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                      </div>
+                      <p style={{ margin: 0, fontSize: '0.8rem', color: '#666', lineHeight: 1.4 }}>{n.message}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Stats */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '16px', marginBottom: '32px' }}>
@@ -444,6 +514,100 @@ export default function AdminDashboard() {
             </div>
           )}
 
+
+          {/* Analytics Tab */}
+          {tab === 'analytics' && (() => {
+            const statusCounts = ['Pending','Confirmed','Preparing','On the way','Delivered','Cancelled'].map(s => ({
+              name: s, value: orders.filter((o: any) => o.status === s).length
+            })).filter(s => s.value > 0);
+
+            const COLORS = ['#F59E0B','#3B82F6','#8B5CF6','#F97316','#22C55E','#EF4444'];
+
+            const revenueByDay: Record<string, number> = {};
+            orders.filter((o: any) => o.status === 'Delivered').forEach((o: any) => {
+              const day = new Date(o.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+              revenueByDay[day] = (revenueByDay[day] || 0) + (o.totalAmount || 0);
+            });
+            const revenueData = Object.entries(revenueByDay).slice(-7).map(([day, revenue]) => ({ day, revenue: parseFloat((revenue as number).toFixed(2)) }));
+
+            const totalRevenue = orders.filter((o: any) => o.status === 'Delivered').reduce((sum: number, o: any) => sum + (o.totalAmount || 0), 0);
+            const totalOrders = orders.length;
+            const deliveredOrders = orders.filter((o: any) => o.status === 'Delivered').length;
+            const cancelledOrders = orders.filter((o: any) => o.status === 'Cancelled').length;
+
+            return (
+              <div>
+                <h2 style={{ fontWeight: 800, marginBottom: 24 }}>Analytics Overview</h2>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 16, marginBottom: 32 }}>
+                  {[
+                    { label: 'Total Revenue', value: '$' + totalRevenue.toFixed(2), color: '#22C55E', icon: '💰' },
+                    { label: 'Total Orders', value: totalOrders, color: '#3B82F6', icon: '📦' },
+                    { label: 'Delivered', value: deliveredOrders, color: '#22C55E', icon: '✅' },
+                    { label: 'Cancelled', value: cancelledOrders, color: '#EF4444', icon: '❌' },
+                  ].map((stat: any) => (
+                    <div key={stat.label} style={{ background: 'white', borderRadius: 16, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderLeft: '4px solid ' + stat.color }}>
+                      <div style={{ fontSize: '1.5rem', marginBottom: 8 }}>{stat.icon}</div>
+                      <div style={{ fontSize: '1.6rem', fontWeight: 800, color: stat.color }}>{stat.value}</div>
+                      <div style={{ fontSize: '0.8rem', color: '#888', marginTop: 4 }}>{stat.label}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 24 }}>
+                  <div style={{ background: 'white', borderRadius: 16, padding: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+                    <h3 style={{ fontWeight: 700, marginBottom: 20, fontSize: '0.95rem' }}>Revenue Last 7 Days</h3>
+                    {revenueData.length === 0 ? (
+                      <p style={{ color: '#aaa', textAlign: 'center', padding: '40px 0' }}>No delivered orders yet</p>
+                    ) : (
+                      <ResponsiveContainer width="100%" height={200}>
+                        <BarChart data={revenueData}>
+                          <XAxis dataKey="day" tick={{ fontSize: 11 }} />
+                          <YAxis tick={{ fontSize: 11 }} />
+                          <Tooltip formatter={(v: any) => ['$' + v, 'Revenue']} />
+                          <Bar dataKey="revenue" fill="#F88435" radius={[6,6,0,0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
+                  </div>
+                  <div style={{ background: 'white', borderRadius: 16, padding: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+                    <h3 style={{ fontWeight: 700, marginBottom: 20, fontSize: '0.95rem' }}>Orders by Status</h3>
+                    {statusCounts.length === 0 ? (
+                      <p style={{ color: '#aaa', textAlign: 'center', padding: '40px 0' }}>No orders yet</p>
+                    ) : (
+                      <ResponsiveContainer width="100%" height={200}>
+                        <PieChart>
+                          <Pie data={statusCounts} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label={({ name, value }: any) => name + ': ' + value}>
+                            {statusCounts.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    )}
+                  </div>
+                </div>
+                <div style={{ background: 'white', borderRadius: 16, padding: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+                  <h3 style={{ fontWeight: 700, marginBottom: 16, fontSize: '0.95rem' }}>Top Restaurants by Orders</h3>
+                  {(() => {
+                    const restCounts: Record<string, number> = {};
+                    orders.forEach((o: any) => {
+                      const name = o.restaurantId?.name || 'Unknown';
+                      restCounts[name] = (restCounts[name] || 0) + 1;
+                    });
+                    const topRests = Object.entries(restCounts).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, count]) => ({ name, count }));
+                    return topRests.length === 0 ? <p style={{ color: '#aaa' }}>No data yet</p> : (
+                      <ResponsiveContainer width="100%" height={180}>
+                        <BarChart data={topRests} layout="vertical">
+                          <XAxis type="number" tick={{ fontSize: 11 }} />
+                          <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={120} />
+                          <Tooltip />
+                          <Bar dataKey="count" fill="#F88435" radius={[0,6,6,0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    );
+                  })()}
+                </div>
+              </div>
+            );
+          })()}
         </main>
       </div>
 

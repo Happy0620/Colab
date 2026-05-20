@@ -6,10 +6,12 @@ import cors from 'cors';
 import mongoose from 'mongoose';
 import reviewRoutes from './backend/routes/reviews';
 import chatRoutes from './backend/routes/chat';
+import paymentRoutes from './backend/routes/payment';
 import authRoutes from './backend/routes/auth';
 import restaurantRoutes from './backend/routes/restaurants';
 import menuRoutes from './backend/routes/menu';
 import orderRoutes from './backend/routes/orders';
+import notificationRoutes from './backend/routes/notifications';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -21,10 +23,12 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/payment', paymentRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/restaurants', restaurantRoutes);
 app.use('/api/menu', menuRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 

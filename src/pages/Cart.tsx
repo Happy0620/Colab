@@ -13,44 +13,11 @@ export default function Cart() {
   const deliveryFee = 2.99;
   const total = subtotal + deliveryFee;
 
-  const handleCheckout = async (e: React.FormEvent) => {
+  const handleCheckout = (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !token) { navigate('/login'); return; }
     if (cart.length === 0) return;
-    if (!address.trim()) { alert('Please enter a delivery address'); return; }
-
-    setIsCheckingOut(true);
-    try {
-      const res = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({
-          userId: user.id,
-          restaurantId: cart[0].restaurantId,
-          items: cart.map(item => ({
-            menuItemId: item.menuItemId,
-            name: item.name,
-            quantity: item.quantity,
-            price: item.price
-          })),
-          totalAmount: total,
-          deliveryAddress: address
-        })
-      });
-
-      if (res.ok) {
-        const order = await res.json();
-        clearCart();
-        navigate('/order-confirmation', { state: { order } });
-      } else {
-        const data = await res.json();
-        alert(data.message || 'Failed to place order');
-      }
-    } catch (err) {
-      alert('Network error. Please try again.');
-    } finally {
-      setIsCheckingOut(false);
-    }
+    navigate('/checkout');
   };
 
   return (
@@ -113,28 +80,18 @@ export default function Cart() {
               </div>
 
               <div style={{ background: '#fff', border: '1px solid #EDE8E3', borderRadius: '20px', padding: '24px' }}>
-                <h3 style={{ marginBottom: '16px', fontFamily: 'Georgia,serif' }}>Delivery Details</h3>
+                <h3 style={{ marginBottom: '16px', fontFamily: 'Georgia,serif' }}>Ready to Order?</h3>
                 <form onSubmit={handleCheckout}>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: '#8A7060', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
-                    Delivery Address
-                  </label>
-                  <textarea
-                    required value={address}
-                    onChange={e => setAddress(e.target.value)}
-                    placeholder="Enter your full delivery address..."
-                    style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '2px solid #EDE8E3', minHeight: '90px', fontFamily: 'inherit', fontSize: '0.92rem', resize: 'vertical', background: '#FAF8F5', outline: 'none', marginBottom: '16px' }}
-                  />
                   <button
                     type="submit"
-                    disabled={isCheckingOut}
                     style={{
                       width: '100%', padding: '14px', borderRadius: '12px', border: 'none',
-                      background: isCheckingOut ? '#ccc' : '#F88435', color: '#fff',
-                      fontWeight: 700, fontSize: '1rem', cursor: isCheckingOut ? 'not-allowed' : 'pointer',
+                      background: '#F88435', color: '#fff',
+                      fontWeight: 700, fontSize: '1rem', cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
                     }}
                   >
-                    {isCheckingOut ? '⏳ Placing Order...' : '🛵 Place Order — $' + total.toFixed(2)}
+                    Proceed to Checkout
                   </button>
                 </form>
               </div>

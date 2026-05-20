@@ -11,7 +11,9 @@ const orderSchema = new mongoose.Schema({
   }],
   totalAmount: { type: Number, required: true },
   deliveryAddress: { type: String, required: true },
-  status: { type: String, enum: ['Pending', 'Preparing', 'On the way', 'Delivered', 'Cancelled'], default: 'Pending' },
+  status: { type: String, enum: ['Pending', 'Confirmed', 'Preparing', 'On the way', 'Delivered', 'Cancelled'], default: 'Pending' },
+  paymentMethod: { type: String, enum: ['COD', 'ONLINE_QR'], default: 'COD' },
+  paymentStatus: { type: String, enum: ['PENDING', 'PAID', 'FAILED'], default: 'PENDING' },
   promoCode: { type: String },
   discountAmount: { type: Number, default: 0 }
 }, { timestamps: true });
